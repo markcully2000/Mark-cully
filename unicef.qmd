@@ -1,0 +1,248 @@
+---
+title: "Life Expectancy and Demographics"
+author: "Mark Cully"
+date: last-modified
+date-format: iso
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-title: Contents
+    number-sections: false
+    html-math-method: katex
+    embed-resources: true
+    linkcolor: blue
+    fig-cap-location: bottom
+    tbl-cap-location: top
+    fontsize: '12'
+    code-fold: true
+    code-tools: true
+    code-block-bg: true
+    code-block-border-left: '#31BAE9'
+    code-line-numbers: true
+    df-print: paged
+editor: visual
+execute: 
+  echo: false
+  warning: false
+  error: false
+  freeze: auto
+---
+
+# Introduction
+
+Global life expectancy and demographics is one of the crucial aspects to look into on a regular basis. This is a pivotal sector in future planning of the generations to come. This study offers a succinct overview of life expectancy data for newborn female children across various countries. It also provides insights into demographic trends, economic factors, and their impact on life expectancy. It explores key indicators such as total population, GDP per capita, and inflation rates.
+
+# Analysis
+
+This section involves analysis done on `unicef_metadata` and `unicef_indicator_2` datasets.
+
+```{r}
+#| code-summary: 'Libraries'
+
+
+library(tidyverse)
+library(maps)
+```
+
+## Data Pre-processing
+
+This sub-section presents data pre-processing done on the two demographic datasets. The following is the order in which data pre-processing is done;
+
+1.  Loading the datasets.
+
+2.  Check for empty columns and remove them.
+
+3.  Remove any other missing values.
+
+4.  Merge the data.
+
+5.  Remove any repeated columns present after merging the data.
+
+6.  check that the data is in appropriate format.
+
+```{r}
+#| code-summary: 'Data pre-processing'
+
+## Data
+unicef_metadata <- read_csv('unicef_metadata (1).csv')
+unicef_indicator_2 <- read_csv('unicef_indicator_2 (1).csv')
+
+## Data pre-processing
+unicef_indicator_2 <- unicef_indicator_2 |> 
+  select(-c(time_period_activity_related_to_when_the_data_are_collected)) # removing empty column
+
+unicef_metadata <- na.omit(unicef_metadata) # remove missing values
+unicef_indicator_2 <- na.omit(unicef_indicator_2) # remove missing values
+
+
+## merge the data
+data_joined <- inner_join(unicef_metadata, unicef_indicator_2,
+                          by=c('country', 'alpha_3_code'))
+
+## remove repeated columns
+data_joined <- data_joined |> 
+  select(-c(alpha_2_code.x, alpha_2_code.y, numeric_code.x, numeric_code.y))
+```
+
+The following list presents the variables to be used in the analysis:
+
+-   *country.*
+
+-   *alpha_3_code*
+
+-   *year*
+
+-   *Total population*
+
+-   *GDP per capita (constant 2015 US\$)*
+
+-   *GNI (current US\$)*
+
+-   *Inflation, consumer prices (annual %)*
+
+-   *Life expectancy at birth, total (years)*
+
+-   *Military expenditure (% of GDP)*
+
+-   *Sex*
+
+## Data visualizations
+
+### Bar charts
+
+```{r}
+#| code-summary: 'Life expectancy bar chart'
+#| label: fig-image1
+#| fig-cap: 'Life expectancy at birth in various coutnries across the globe'
+
+
+## select various countries to analyze
+data_joined_filtered <- data_joined |> 
+  filter(
+    alpha_3_code %in% c("EGY", "NGA", "ZAF", "JPN", "IND", "THA", "DEU", "FRA",
+                        "GBR", "CAN", "MEX", "USA", "BRA", "ARG", "CHL", "AUS"))
+
+## bar chart for various countries
+data_joined_filtered |> 
+  ggplot(aes(x=country, y=`Life expectancy at birth, total (years)`, fill=country)) +
+  geom_col(position='identity') +
+  labs(x='', title='Life expectancy at birth in various coutnries across the globe') +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position='none')
+```
+
+@fig-image1 above shows life expectancy (**in total years**) at birth in various countries. It can be seen that the countries that have their life expectancy above 80 years are; United Kingdom, Japan, Germany, France, Chile, Canada and Australia. Nigeria and South Africa are among the countries that have low life expectancy. Overall, most countries' life expectancy lies between 50 and 70, that is, in total years.
+
+```{r}
+#| code-summary: 'Total Population in countries bar chart'
+#| label: fig-image2
+#| fig-cap: 'Total population in various coutnries across the globe'
+
+
+data_joined_filtered |> 
+  ggplot(aes(x=country, y=`Population, total`, fill=country)) +
+  geom_col(position='identity') +
+  labs(x='', y='Total Population',
+       title='Total population in various coutnries across the globe') +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position='none')
+```
+
+@fig-image2 above shows total population of various countries. India appears to have the highest population overall. The following country is United States and then the rest of the countries which when compared to India, they really have a low total population.
+
+### Scatter charts with regression lines
+
+```{r}
+#| code-summary: 'scatter plot with reg line'
+#| label: fig-image3
+#| fig-cap: 'Scatter plot with regression line of life expectancy'
+
+data_joined_filtered |> 
+  ggplot(aes(x=year, y=`Life expectancy at birth, total (years)`, color=country)) +
+  geom_point() +
+  geom_smooth(method='lm', se=FALSE) +
+  facet_wrap(~ country) +
+  labs(x='Year', title='Scatter plot with regression line of life expectancy',
+       subtitle='Life expectancy of various countries: 1960-2022') +
+  theme_minimal() +
+  theme(legend.position='none')
+```
+
+@fig-image3 presents scatter plot with regression line of life expectancy. In general, life expectancy have been on a positive linear trend across the years 1960-2022. This is to mean that as the years progresses, life expectancy improves which indicates most countries are on the right track. One country to note is South Africa, its life expectancy went down wards around the years between 2000 and 2010.
+
+```{r}
+#| code-summary: 'Life expectancy against GDP per capita'
+#| label: fig-image4
+#| fig-cap: 'Life expectancy against GDP per capita'
+
+data_joined_filtered |> 
+  ggplot(aes(y=`Life expectancy at birth, total (years)`, color=country)) +
+  geom_point(aes(x=`GDP per capita (constant 2015 US$)`)) +
+  geom_smooth(aes(x=`GDP per capita (constant 2015 US$)`), method='lm', se=FALSE) +
+  labs(title='Life expectancy against GDP per capita') +
+  theme_minimal()
+```
+
+@fig-image4 shows life expectancy against GDP per capita. It is obvious that GDP has a significant impact in life expectancy. The chart shows that as life expectancy increases, GDP per capita also increases. Overall, life expectancy increases at a higher rate that GDP per capita.
+
+```{r}
+#| code-summary: 'Life expectancy against inflation consumer prices'
+#| label: fig-image5
+#| fig-cap: 'Life expectancy against inflation consumer prices'
+
+data_joined_filtered |> 
+  ggplot(aes(y=`Life expectancy at birth, total (years)`, color=country)) +
+  geom_point(aes(x=`Inflation, consumer prices (annual %)`)) +
+  geom_smooth(aes(x=`Inflation, consumer prices (annual %)`), method='lm', se=FALSE) +
+  labs(title='Life expectancy against inflation consumer prices') +
+  theme_minimal()
+```
+
+In @fig-image5 above, it can be observed that inflation consumer prices does not really have a significant effect on life expectancy in all of the above countries. However, Chile is an exception since, as its life expectancy decreases, annual inflation consumer prices increases.
+
+### Time series chart
+
+```{r}
+#| code-summary: 'Time series plot'
+#| label: fig-image6
+#| fig-cap: 'Life expectancy of various countries: 1960-2022'
+
+
+data_joined_filtered |> 
+  ggplot(aes(x=year, y=`Life expectancy at birth, total (years)`, color=country)) +
+  geom_line() +
+  labs(x='Year', title='Time Series Plot',
+       subtitle='Life expectancy of various countries: 1960-2022') +
+  theme_minimal()
+```
+
+In @fig-image6, an increasing trend of life expectancy across the years was observed by every country present. This is an indication that life expectancy of the countries have been improving over the years. This insight helps in planning of the nation's projects in the years to come.
+
+```{r}
+#| code-summary: 'A world map chart'
+#| label: fig-image7
+#| fig-cap: 'A world map chart of life expectancy'
+
+
+# Get world map data
+world_map <- map_data("world")
+
+# Merge world map data with your dataset based on country codes
+merged_data <- merge(world_map, data_joined, by.x = "region", by.y = "country", all.x = TRUE)
+
+# Plot the map
+ggplot(data = merged_data, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = `Life expectancy at birth, total (years)`), color = "white") +
+  scale_fill_viridis_c() +
+  labs(title = "World Map", fill = "Life expectancy") +
+  theme_void()  # Remove axis labels and ticks for cleaner map
+```
+
+@fig-image7 shows a world map chart of the distribution of life expectancy. In the above chart, the darkest color represents the highest life expectancy, which is 80 years or more. The lightest color represents the lowest life expectancy, which is 30 years or less. Most parts of Africa and some countries in Asia are shaded dark, signifying lower life expectancies. In contrast, regions like North America, Europe, and Australia are primarily green, indicating higher life expectancies.
+
+# Conclusion
+
+It has been seen that in deed **life expectancy** is an important measure under demographics that can give so much insight about a country or a population. It has been observed that GDP has a significant impact on life expectancy in that, life expectancy increases with an increase in GDP per capita. It has also been observed that life expectancy has been improving across the globe across the years 1960-2022 and therefore, this is an indication that humanity as a whole, is heading in the right direction and sane decisions have been made independently as countries and collectively as a whole to achieve the upward trend of life expectancy.
